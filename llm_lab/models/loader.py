@@ -33,9 +33,11 @@ def load_model_and_tokenizer(
         Tuple of (model, tokenizer).
     """
     actual_path = _resolve_model_path(model_name_or_path, source)
+    is_local = Path(actual_path).exists()
     tokenizer = AutoTokenizer.from_pretrained(
         actual_path,
         trust_remote_code=True,
+        local_files_only=is_local,
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -47,6 +49,7 @@ def load_model_and_tokenizer(
         load_in_4bit=load_in_4bit,
         device_map=device_map,
         trust_remote_code=True,
+        local_files_only=is_local,
     )
     FastLanguageModel.for_inference(model)
 

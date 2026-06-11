@@ -16,4 +16,5 @@ services:
     working_dir: /workspace
     environment:
       - PYTHONPATH=/workspace
+      - HF_HUB_OFFLINE=1
     ipc: host

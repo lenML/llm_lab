@@ -7,7 +7,15 @@ name = "llm_lab"
 version = "0.1.0"
 description = "LLM training lab based on Unsloth"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "reasoning-gym>=0.1.0",
+    "trl>=0.20.0",
+    "unsloth",
+    "transformers>=5.2.0",
+    "torch>=2.0.0",
+    "datasets",
+    "pyyaml",
+]
 
 [project.urls]
 Source = "https://github.com/@lenML/llm_lab"

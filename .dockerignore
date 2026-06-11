@@ -1,0 +1,31 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+.venv/
+venv/
+.env/
+
+# IDE
+.vscode/
+.idea/
+
+# Training outputs & data (host-only)
+/outputs/
+/data/
+/models/
+.cache/
+unsloth_compiled_cache/
+
+# Local config
+docker-compose.override.yml
+*.md
+issues.md

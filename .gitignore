@@ -33,7 +33,15 @@ huggingface/
 # Unsloth
 unsloth_compiled_cache/
 
+# Docker
+.docker/
+
+# Environments
+*.swp
+*.swo
+
 # OS
 Thumbs.db
 .DS_Store
 issues.md
+*.md

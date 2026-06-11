@@ -1,0 +1,26 @@
+model:
+  source: modelscope
+  name_or_path: ./models/unsloth/Qwen3___5-0___8B
+  load_in_4bit: false
+
+max_seq_length: 1536
+max_prompt_length: 512
+
+training:
+  algorithm: grpo_multi_turn
+  output_dir: ./outputs/grpo_multi_turn
+  batch_size: 1
+  learning_rate: 1.0e-6
+  epochs: 1
+  logging_steps: 1
+  save_steps: 50
+  temperature: 0.6
+  beta: 0.04
+  num_generations: 2
+  reasoning:
+    dataset_name: chain_sum
+    dataset_size: 8
+    seed: 42
+    system_prompt: DeepSeekZero
+    max_turns: 3
+    max_completion_length: 128
