@@ -49,3 +49,8 @@ class BaseEnvironment(ABC):
     def final_reward(self) -> float:
         """Final reward (0 if not done)."""
         ...
+
+    @property
+    def messages(self) -> list[dict]:
+        """Full conversation message list (read-only)."""
+        return list(getattr(self, "_messages", []))
