@@ -110,7 +110,7 @@ def main():
         )
     elif algo == "grpo_reasoning":
         from llm_lab.data import create_reasoning_dataset
-        from llm_lab.trainers import train_grpo_reasoning
+        from llm_lab.trainers import train_grpo_reasoning, train_grpo_vllm
 
         rc = tc.get("reasoning", {})
         rdataset, score_fn = create_reasoning_dataset(
@@ -134,6 +134,69 @@ def main():
             output_dir=tc.get("output_dir", "./outputs/grpo_reasoning"),
             logging_steps=tc.get("logging_steps", 1),
             save_steps=tc.get("save_steps", 100),
+        )
+    elif algo == "grpo_vllm":
+        from vllm import LLM, SamplingParams
+
+        env_type = tc.get("env_type", "reasoning_gym")
+
+        if env_type == "tool_use":
+            from llm_lab.data import load_dataset
+            from llm_lab.environments import ToolUseEnvironment
+            ec = tc.get("env", {})
+            rdataset = load_dataset(
+                path=cfg["data"]["path"], format="messages",
+                max_samples=cfg.get("data", {}).get("max_samples"),
+            )
+            env_factory = lambda: ToolUseEnvironment(
+                tokenizer=tokenizer,
+                expected_answer="",
+                system_prompt=ec.get("system_prompt", ""),
+                max_turns=ec.get("max_turns", 5),
+            )
+        else:
+            from llm_lab.data import create_reasoning_dataset
+            from llm_lab.environments import ReasoningGymEnvironment
+            rc = tc.get("reasoning", {})
+            rdataset, score_fn = create_reasoning_dataset(
+                dataset_name=rc.get("dataset_name", "chain_sum"),
+                size=rc.get("dataset_size", 8),
+                seed=rc.get("seed", 42),
+                system_prompt=rc.get("system_prompt", "DeepSeekZero"),
+            )
+            env_factory = lambda: ReasoningGymEnvironment(
+                tokenizer=tokenizer, score_fn=score_fn,
+                system_prompt=rc.get("system_prompt", "DeepSeekZero"),
+                max_turns=rc.get("max_turns", 3),
+            )
+
+        vllm = LLM(
+            model=tc.get("vllm_model_path", mc["name_or_path"]),
+            dtype=tc.get("vllm_dtype", "auto"),
+            max_model_len=tc.get("max_seq_length", 2048),
+            tensor_parallel_size=1,
+            gpu_memory_utilization=tc.get("vllm_gpu_mem", 0.5),
+        )
+        sp = SamplingParams(
+            temperature=tc.get("temperature", 0.6),
+            max_tokens=tc.get("reasoning", {}).get("max_completion_length", 128),
+        )
+
+        train_grpo_vllm(
+            model=model, tokenizer=tokenizer, train_dataset=rdataset,
+            vllm_model=vllm, vllm_sampling_params=sp,
+            env_factory=env_factory,
+            num_generations=tc.get("num_generations", 2),
+            max_turns=rc.get("max_turns", 3),
+            max_prompt_length=rc.get("max_prompt_length", 256),
+            max_completion_length=rc.get("max_completion_length", 128),
+            entropy_coef=tc.get("entropy_coef", 0.01),
+            learning_rate=tc.get("learning_rate", 1.0e-6),
+            batch_size=tc.get("batch_size", 1),
+            num_epochs=tc.get("epochs", 1),
+            output_dir=tc.get("output_dir", "./outputs/grpo_vllm"),
+            logging_steps=tc.get("logging_steps", 1),
+            save_steps=tc.get("save_steps", 50),
         )
     elif algo == "grpo_multi_turn":
         from llm_lab.trainers import train_grpo_multi_turn

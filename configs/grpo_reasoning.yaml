@@ -1,8 +1,8 @@
 # ── model ────────────────────────────────────────────────────────
 model:
   source: modelscope
-  name_or_path: ./models/Qwen/Qwen3___5-0___8B
-  load_in_4bit: true          # try true later for QLoRA
+  name_or_path: ./models/Qwen/Qwen3-0___6B
+  load_in_4bit: false          # try true later for QLoRA
 
 max_seq_length: 1536
 max_prompt_length: 512
