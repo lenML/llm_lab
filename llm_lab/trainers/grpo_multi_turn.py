@@ -112,7 +112,10 @@ def _compute_reinforce_loss(
         [r for _, r in trajectories], device=device, dtype=torch.float
     )
 
-    adv = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
+    if rewards.numel() > 1:
+        adv = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
+    else:
+        adv = torch.zeros_like(rewards)
 
     entropy = -curr_lp.mean()
     loss = -(adv.detach() * curr_lp).mean() - entropy_coef * entropy
