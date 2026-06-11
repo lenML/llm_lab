@@ -43,5 +43,6 @@ unsloth_compiled_cache/
 # OS
 Thumbs.db
 .DS_Store
+
+# Project-specific
 issues.md
-*.md

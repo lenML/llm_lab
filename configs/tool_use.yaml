@@ -1,7 +1,7 @@
 # ── model ────────────────────────────────────────────────────────
 model:
   source: modelscope
-  name_or_path: ./models/unsloth/Qwen3___5-0___8B
+  name_or_path: ./models/Qwen/Qwen3-0___6B
   load_in_4bit: true
 
 max_seq_length: 1536
