@@ -1,0 +1,42 @@
+# ── model ────────────────────────────────────────────────────────
+model:
+  source: modelscope
+  name_or_path: ./models/unsloth/Qwen3___5-0___8B
+  load_in_4bit: true
+
+max_seq_length: 1536
+
+lora:
+  r: 16
+  alpha: 16
+  dropout: 0.0
+  use_rslora: false
+
+# ── dataset ──────────────────────────────────────────────────────
+data:
+  path: ./data/tool_math.jsonl
+  format: messages
+
+# ── training ─────────────────────────────────────────────────────
+training:
+  algorithm: grpo_multi_turn
+  output_dir: ./outputs/tool_use
+  batch_size: 1
+  learning_rate: 1.0e-6
+  epochs: 1
+  logging_steps: 1
+  save_steps: 50
+  temperature: 0.7
+  entropy_coef: 0.01
+  num_generations: 2
+
+  # Environment config — interpreted by the trainer
+  env_type: tool_use      # tool_use | reasoning_gym
+  env:
+    max_turns: 5
+    max_completion_length: 200
+    max_prompt_length: 512
+    system_prompt: |
+      Solve the problem step by step. You can use the calculator tool
+      by emitting <tool_call>{"name":"calculator","arguments":{"expr":"..."}}</tool_call>.
+      Put your final answer in <answer>...</answer>.

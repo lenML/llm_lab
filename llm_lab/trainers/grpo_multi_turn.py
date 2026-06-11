@@ -1,9 +1,16 @@
-"""Multi-turn GRPO trainer with environment interaction.
+"""Multi-turn REINFORCE trainer with environment interaction.
 
-This implements a custom GRPO training loop that supports multiple
+This implements a custom training loop (REINFORCE with standardised
+advantages + entropy bonus, no KL reference) that supports multiple
 turns of model-environment interaction per prompt. Each trajectory
 goes through N turns of ``generate → environment step → feedback``
 before a final reward is assigned.
+
+Why REINFORCE instead of full GRPO?
+  GRPO requires a frozen reference model for the KL penalty, which
+  with LoRA/QLoRA means maintaining a separate copy of adapter
+  weights.  The simpler REINFORCE + entropy achieves a similar effect
+  without the overhead and is sufficient for initial experiments.
 """
 
 import os
@@ -75,52 +82,41 @@ def _compute_trajectory_log_probs(
     return total
 
 
-def _compute_grpo_loss(
+def _compute_reinforce_loss(
     model: PreTrainedModel,
     trajectories: list,
-    beta: float,
+    entropy_coef: float,
     device: torch.device,
-) -> torch.Tensor:
-    """GRPO loss = -E[A * log π] + β * KL(π|π_ref).
+) -> tuple:
+    """REINFORCE with standardised advantages + optional entropy bonus.
+
+    No KL penalty against a reference model.  This avoids the need for
+    a frozen reference copy and works with LoRA adapters.
 
     Args:
         model: Current policy model.
-        tokenizer: Tokenizer.
-        trajectories: List of ``(turns, reward)`` where *turns* is a list of
-            ``(prompt_ids_1d, gen_ids_1d)`` per turn.
-        beta: KL penalty coefficient.
+        trajectories: List of ``(turns, reward)``.
+        entropy_coef: Coefficient for entropy regularisation.
         device: Torch device.
 
     Returns:
-        Scalar loss tensor.
+        ``(loss, log_probs, rewards)``.
     """
-    # --- reference log probs (no grad) ---
-    ref_log_probs: list[torch.Tensor] = []
-    with torch.no_grad():
-        model.eval()
-        for turns, _ in trajectories:
-            lp = _compute_trajectory_log_probs(model, turns, device)
-            ref_log_probs.append(lp)
-        model.train()
-
-    # --- current log probs (with grad) ---
     curr_log_probs: list[torch.Tensor] = []
     for turns, _ in trajectories:
         lp = _compute_trajectory_log_probs(model, turns, device)
         curr_log_probs.append(lp)
 
     curr_lp = torch.stack(curr_log_probs)  # [T]
-    ref_lp = torch.stack(ref_log_probs)  # [T]
-    rewards = torch.tensor([r for _, r in trajectories], device=device, dtype=torch.float)
+    rewards = torch.tensor(
+        [r for _, r in trajectories], device=device, dtype=torch.float
+    )
 
-    # Standardised advantages
     adv = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
 
-    # Biased per-trajectory KL  (GRPO paper §A.1)
-    log_ratio = ref_lp - curr_lp  # ref - curr  (detached ref)
-    kl = torch.exp(log_ratio) - log_ratio - 1
+    entropy = -curr_lp.mean()
+    loss = -(adv.detach() * curr_lp).mean() - entropy_coef * entropy
 
-    loss = -(adv.detach() * curr_lp).mean() + beta * kl.mean()
     return loss, curr_lp.detach(), rewards.detach()
 
 
@@ -138,7 +134,7 @@ def train_grpo_multi_turn(
     max_prompt_length: int = 512,
     max_completion_length: int = 128,
     max_seq_length: int = 2048,
-    beta: float = 0.04,
+    entropy_coef: float = 0.01,
     learning_rate: float = 1e-6,
     batch_size: int = 1,
     num_epochs: int = 1,
@@ -149,12 +145,12 @@ def train_grpo_multi_turn(
     gradient_accumulation_steps: int = 1,
     report_to: Optional[str] = None,
 ) -> None:
-    """Run multi-turn GRPO training.
+    """Run multi-turn REINFORCE training.
 
     For every prompt in the batch, ``num_generations`` independent
     multi-turn trajectories are rolled out.  The final reward (from the
-    environment) is used for the GRPO advantage, and a per-trajectory
-    KL penalty keeps the policy close to its reference.
+    environment) is used for the standardised advantage (REINFORCE with
+    baseline), and an entropy bonus encourages exploration.
 
     Args:
         model: Unsloth-loaded model (training mode).
@@ -167,7 +163,7 @@ def train_grpo_multi_turn(
         max_prompt_length: Truncate accumulated prompt history.
         max_completion_length: Max new tokens per generation call.
         max_seq_length: Max total sequence length (prompt+completion).
-        beta: KL penalty coefficient.
+        entropy_coef: Entropy regularisation coefficient.
         learning_rate: AdamW learning rate.
         batch_size: Batch size for dataset loader.
         num_epochs: Training epochs.
@@ -187,7 +183,7 @@ def train_grpo_multi_turn(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
-        collate_fn=lambda b: b,  # keep as list of dicts
+        collate_fn=lambda b: b,
     )
 
     global_step = 0
@@ -222,7 +218,6 @@ def train_grpo_multi_turn(
 
                         gen_ids = output[0, prompt_ids.shape[0]:]  # 1D
                         if len(gen_ids) == 0:
-                            # Force environment to terminate
                             env.step("")
                             break
 
@@ -236,12 +231,11 @@ def train_grpo_multi_turn(
             if not trajectories:
                 continue
 
-            # ── 2. GRPO loss ──────────────────────────────────────
-            loss, curr_lp_log, rewards_log = _compute_grpo_loss(
-                model, trajectories, beta, device
+            # ── 2. REINFORCE loss ────────────────────────────────
+            loss, curr_lp_log, rewards_log = _compute_reinforce_loss(
+                model, trajectories, entropy_coef, device
             )
 
-            # Scale by gradient accumulation steps
             loss_scaled = loss / gradient_accumulation_steps
             loss_scaled.backward()
             accumulated_loss += loss_scaled.item()
@@ -271,7 +265,6 @@ def train_grpo_multi_turn(
                 tokenizer.save_pretrained(ckpt)
                 print(f"  → saved checkpoint to {ckpt}")
 
-    # Final save
     model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
     print(f"  ✓ model saved to {output_dir}")

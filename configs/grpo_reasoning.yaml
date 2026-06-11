@@ -24,7 +24,7 @@ training:
   logging_steps: 1
   save_steps: 50
   temperature: 0.6
-  beta: 0.04
+  entropy_coef: 0.01
   num_generations: 2
 
   reasoning:

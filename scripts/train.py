@@ -51,7 +51,7 @@ def main():
         source=mc.get("source", "huggingface"),
         max_seq_length=cfg.get("max_seq_length", 2048),
         load_in_4bit=mc.get("load_in_4bit", False),
-        inference_only=False,   # we may attach LoRA below
+        inference_only=False,
     )
 
     # ---- optionally apply LoRA / QLoRA ----
@@ -136,44 +136,86 @@ def main():
             save_steps=tc.get("save_steps", 100),
         )
     elif algo == "grpo_multi_turn":
-        from llm_lab.data import create_reasoning_dataset
-        from llm_lab.environments import ReasoningGymEnvironment
         from llm_lab.trainers import train_grpo_multi_turn
 
-        rc = tc.get("reasoning", {})
-        rdataset, score_fn = create_reasoning_dataset(
-            dataset_name=rc.get("dataset_name", "chain_sum"),
-            size=rc.get("dataset_size", 8),
-            seed=rc.get("seed", 42),
-            system_prompt=rc.get("system_prompt", "DeepSeekZero"),
-        )
+        env_type = tc.get("env_type", "reasoning_gym")
 
-        env_factory = lambda: ReasoningGymEnvironment(
-            tokenizer=tokenizer,
-            score_fn=score_fn,
-            system_prompt=rc.get("system_prompt", "DeepSeekZero"),
-            max_turns=rc.get("max_turns", 3),
-        )
+        if env_type == "tool_use":
+            from llm_lab.data import load_dataset
+            from llm_lab.environments import ToolUseEnvironment
 
-        train_grpo_multi_turn(
-            model=model,
-            tokenizer=tokenizer,
-            train_dataset=rdataset,
-            env_factory=env_factory,
-            num_generations=tc.get("num_generations", 2),
-            max_turns=rc.get("max_turns", 3),
-            max_prompt_length=rc.get("max_prompt_length", 256),
-            max_completion_length=rc.get("max_completion_length", 128),
-            max_seq_length=cfg.get("max_seq_length", 1536),
-            beta=tc.get("beta", 0.04),
-            learning_rate=tc.get("learning_rate", 1.0e-6),
-            batch_size=tc.get("batch_size", 1),
-            num_epochs=tc.get("epochs", 1),
-            output_dir=tc.get("output_dir", "./outputs/grpo_multi_turn"),
-            logging_steps=tc.get("logging_steps", 1),
-            save_steps=tc.get("save_steps", 50),
-            temperature=tc.get("temperature", 0.6),
-        )
+            ec = tc.get("env", {})
+            rdataset = load_dataset(
+                path=cfg["data"]["path"],
+                format="messages",
+                max_samples=cfg.get("data", {}).get("max_samples"),
+            )
+
+            env_factory = lambda: ToolUseEnvironment(
+                tokenizer=tokenizer,
+                expected_answer="",
+                system_prompt=ec.get("system_prompt", ""),
+                max_turns=ec.get("max_turns", 5),
+            )
+
+            train_grpo_multi_turn(
+                model=model,
+                tokenizer=tokenizer,
+                train_dataset=rdataset,
+                env_factory=env_factory,
+                num_generations=tc.get("num_generations", 2),
+                max_turns=ec.get("max_turns", 5),
+                max_prompt_length=ec.get("max_prompt_length", 512),
+                max_completion_length=ec.get("max_completion_length", 200),
+                max_seq_length=cfg.get("max_seq_length", 1536),
+                entropy_coef=tc.get("entropy_coef", 0.01),
+                learning_rate=tc.get("learning_rate", 1.0e-6),
+                batch_size=tc.get("batch_size", 1),
+                num_epochs=tc.get("epochs", 1),
+                output_dir=tc.get("output_dir", "./outputs/tool_use"),
+                logging_steps=tc.get("logging_steps", 1),
+                save_steps=tc.get("save_steps", 50),
+                temperature=tc.get("temperature", 0.7),
+            )
+        else:
+            # default: reasoning_gym
+            from llm_lab.data import create_reasoning_dataset
+            from llm_lab.environments import ReasoningGymEnvironment
+
+            rc = tc.get("reasoning", {})
+            rdataset, score_fn = create_reasoning_dataset(
+                dataset_name=rc.get("dataset_name", "chain_sum"),
+                size=rc.get("dataset_size", 8),
+                seed=rc.get("seed", 42),
+                system_prompt=rc.get("system_prompt", "DeepSeekZero"),
+            )
+
+            env_factory = lambda: ReasoningGymEnvironment(
+                tokenizer=tokenizer,
+                score_fn=score_fn,
+                system_prompt=rc.get("system_prompt", "DeepSeekZero"),
+                max_turns=rc.get("max_turns", 3),
+            )
+
+            train_grpo_multi_turn(
+                model=model,
+                tokenizer=tokenizer,
+                train_dataset=rdataset,
+                env_factory=env_factory,
+                num_generations=tc.get("num_generations", 2),
+                max_turns=rc.get("max_turns", 3),
+                max_prompt_length=rc.get("max_prompt_length", 256),
+                max_completion_length=rc.get("max_completion_length", 128),
+                max_seq_length=cfg.get("max_seq_length", 1536),
+                entropy_coef=tc.get("entropy_coef", 0.01),
+                learning_rate=tc.get("learning_rate", 1.0e-6),
+                batch_size=tc.get("batch_size", 1),
+                num_epochs=tc.get("epochs", 1),
+                output_dir=tc.get("output_dir", "./outputs/grpo_multi_turn"),
+                logging_steps=tc.get("logging_steps", 1),
+                save_steps=tc.get("save_steps", 50),
+                temperature=tc.get("temperature", 0.6),
+            )
     else:
         print(f"Unknown algorithm: {algo}")
         sys.exit(1)
