@@ -8,11 +8,32 @@ import argparse
 import sys
 
 import yaml
+from transformers import PreTrainedModel
 
 
 def load_config(path: str) -> dict:
     with open(path) as f:
         return yaml.safe_load(f)
+
+
+def _maybe_apply_lora(model: PreTrainedModel, cfg: dict) -> PreTrainedModel:
+    """Attach LoRA adapters if ``lora`` section exists in config."""
+    lc = cfg.get("lora")
+    if lc is None:
+        return model
+
+    from llm_lab.models import setup_lora
+
+    print("  attaching LoRA adapters (r=%d, alpha=%d) …" % (lc.get("r", 16), lc.get("alpha", 16)))
+    model = setup_lora(
+        model,
+        r=lc.get("r", 16),
+        alpha=lc.get("alpha", 16),
+        dropout=lc.get("dropout", 0.0),
+        target_modules=lc.get("target_modules"),
+        use_rslora=lc.get("use_rslora", False),
+    )
+    return model
 
 
 def main():
@@ -30,7 +51,11 @@ def main():
         source=mc.get("source", "huggingface"),
         max_seq_length=cfg.get("max_seq_length", 2048),
         load_in_4bit=mc.get("load_in_4bit", False),
+        inference_only=False,   # we may attach LoRA below
     )
+
+    # ---- optionally apply LoRA / QLoRA ----
+    model = _maybe_apply_lora(model, cfg)
 
     # ---- train config ----
     tc = cfg["training"]

@@ -1,13 +1,22 @@
+# ── model ────────────────────────────────────────────────────────
 model:
   source: modelscope
   name_or_path: ./models/unsloth/Qwen3___5-0___8B
-  load_in_4bit: false
+  load_in_4bit: true           # QLoRA
 
 max_seq_length: 1536
 max_prompt_length: 512
 
+# ── LoRA / QLoRA ────────────────────────────────────────────────
+lora:
+  r: 16
+  alpha: 16
+  dropout: 0.0
+  use_rslora: false
+
+# ── training ─────────────────────────────────────────────────────
 training:
-  algorithm: grpo_multi_turn
+  algorithm: grpo_multi_turn    # sft | grpo | grpo_reasoning | grpo_multi_turn
   output_dir: ./outputs/grpo_multi_turn
   batch_size: 1
   learning_rate: 1.0e-6
@@ -17,6 +26,7 @@ training:
   temperature: 0.6
   beta: 0.04
   num_generations: 2
+
   reasoning:
     dataset_name: chain_sum
     dataset_size: 8

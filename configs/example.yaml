@@ -1,17 +1,29 @@
+# ── model ────────────────────────────────────────────────────────
 model:
   source: modelscope          # huggingface | modelscope
   name_or_path: ./models/unsloth/Qwen3___5-0___8B
-  load_in_4bit: false
+  load_in_4bit: true           # required for QLoRA
 
 max_seq_length: 2048
 
+# ── LoRA / QLoRA ────────────────────────────────────────────────
+# Uncomment to enable LoRA.  4-bit (load_in_4bit) + LoRA = QLoRA.
+lora:
+  r: 16
+  alpha: 16
+  dropout: 0.0
+  # target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+  use_rslora: false
+
+# ── data ─────────────────────────────────────────────────────────
 data:
   path: ./data/train.jsonl
   format: messages
   max_samples: 100
 
+# ── training ─────────────────────────────────────────────────────
 training:
-  algorithm: sft                # sft | grpo
+  algorithm: sft                # sft | grpo | grpo_reasoning | grpo_multi_turn
   output_dir: ./outputs
   batch_size: 2
   learning_rate: 2.0e-4
