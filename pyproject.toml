@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=75.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "llm_lab"
+version = "0.1.0"
+description = "LLM training lab based on Unsloth"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.urls]
+Source = "https://github.com/@lenML/llm_lab"

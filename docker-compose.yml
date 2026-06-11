@@ -1,0 +1,17 @@
+services:
+  unsloth:
+    image: unsloth/unsloth:latest
+    container_name: llm-lab
+    restart: unless-stopped
+    command: sleep infinity
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    ipc: host
