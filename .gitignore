@@ -16,17 +16,24 @@ venv/
 *.swp
 *.swo
 
-# Ruff
-.ruff_cache/
-
 # Docker
 .docker/
 docker-compose.override.yml
 
-# Training outputs
-outputs/
-data/
+# Training
+/outputs/
+/data/
 *.jsonl
 
-# Unsloth compiled cache
+# Model cache
+/models/
+.cache/
+huggingface/
+
+# Unsloth
 unsloth_compiled_cache/
+
+# OS
+Thumbs.db
+.DS_Store
+issues.md

@@ -1,6 +1,6 @@
 services:
   unsloth:
-    image: unsloth/unsloth:latest
+    build: .
     container_name: llm-lab
     restart: unless-stopped
     command: sleep infinity
@@ -14,4 +14,6 @@ services:
     volumes:
       - .:/workspace
     working_dir: /workspace
+    environment:
+      - PYTHONPATH=/workspace
     ipc: host
