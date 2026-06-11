@@ -1,7 +1,7 @@
 # ── model ────────────────────────────────────────────────────────
 model:
   source: modelscope          # huggingface | modelscope
-  name_or_path: ./models/Qwen/Qwen3-0___6B
+  name_or_path: ./models/Qwen/Qwen3___5-0___8B
   load_in_4bit: true           # required for QLoRA
 
 max_seq_length: 2048
